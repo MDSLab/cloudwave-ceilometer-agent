@@ -1,0 +1,12 @@
+[Unit]
+Description=CloudWave Ceilometer agent service
+After=syslog.target network.target
+
+[Service]
+Type=simple
+User=ceilometer
+ExecStart=/usr/bin/cw-agent --logfile /var/log/ceilometer/cw-agent-XXX.log
+
+[Install]
+WantedBy=multi-user.target
+
