@@ -1,4 +1,5 @@
 # cloudwave-ceilometer-agent
 Openstack Ceilometer Agent for the EU project CloudWave.
 
-This component is injected into each CW virtual machine and it allows loading one or more plugins written by the CW developer to collect measurements and event at the platform and virtual machine layers. The CW Probe uses the CW .so library to send measurements and event to the CW Ceilometer Agent (cw-agent). 
+During Y3, UNIME replaced the CloudWave Ceilometer pollster (cw-pollster) used since Y1 with a new Ceilometer Polling Agent, named CloudWave Ceilometer Agent (cw-agent). This new agent, installed in each Openstack compute node, that coexists with the standard Ceilometer Agent, collects all the CloudWave metrics sent by CW applications and by CW Probe from inside the virtual machines and redirects them to the Openstack Ceilometer Collector.
+In particular cw-agent launches an AMQP broker whose queues are filled with messages coming from the CW Probes and in realtime empties the queues and sends messages to the Openstack Ceilometer Collector.
