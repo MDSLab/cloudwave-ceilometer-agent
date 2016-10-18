@@ -19,7 +19,7 @@
 # Author: Nicola Peditto <npeditto@unime.it>
 #
 #
-
+import pytz
 import pika
 #import inspect
 import json
@@ -32,15 +32,15 @@ import datetime
 import time
 
 from time import sleep
-from oslo.config import cfg
+from oslo_config import cfg
 from ceilometer import service
-from ceilometer.openstack.common import log
+from oslo_log import log
 from ceilometer import pipeline
 from ceilometer.compute.pollsters import util
 from ceilometer import nova_client
 from ceilometer import sample
 from ceilometer import pipeline as publish_pipeline
-from ceilometer.openstack.common import context
+from oslo_context import context
 from pika.exceptions import AMQPConnectionError
 
 
@@ -48,7 +48,8 @@ from pika.exceptions import AMQPConnectionError
 LOG = log.getLogger(__name__)
 
 
-cfg.CONF(project='ceilometer')
+opt_group = cfg.OptGroup(name='cloudwave', title='Options for CLOUDWAVE')
+
 
 cwagent_opts = [
 
@@ -61,15 +62,15 @@ cwagent_opts = [
                help='AMQP compute PORT address'),
 
     cfg.StrOpt('timeout_recon',
-               default=3,
+               default=1,
                help='Timeout [sec] before reconnection to RabbitMQ local broker.'),
 
     cfg.StrOpt('heartbeat',
-               default=1,
+               default=4,
                help='Timeout [sec] before checking for new/old instances.'),
 
     cfg.StrOpt('monitoring_interval',
-               default=2,
+               default=4,
                help='Timeout [sec] before reconnection to RabbitMQ local broker.'),
 
     cfg.StrOpt('rabbitmq_user',
@@ -86,7 +87,11 @@ cwagent_opts = [
 
 ]
 
-cfg.CONF.register_opts(cwagent_opts, group='cloudwave')
+
+
+cfg.CONF.register_group(opt_group)
+
+cfg.CONF.register_opts(cwagent_opts, group=opt_group)
 
 
 
@@ -106,15 +111,16 @@ channel = None
 instsmon = None
 connection = None
 refresh = False
-amqp_compute_ip = cfg.CONF.cloudwave.amqp_compute_ip
-exchange = cfg.CONF.cloudwave.cw_exchange #"CloudWave"
-timeout_recon = float(cfg.CONF.cloudwave.timeout_recon)
-heartbeat = int(cfg.CONF.cloudwave.heartbeat)
-rabbitmq_user = cfg.CONF.cloudwave.rabbitmq_user
-rabbitmq_password = cfg.CONF.cloudwave.rabbitmq_password
-monitoring_interval = float(cfg.CONF.cloudwave.monitoring_interval)
+amqp_compute_ip = None
+exchange = None
+timeout_recon = None
+heartbeat = None
+rabbitmq_user = None
+rabbitmq_password = None
+monitoring_interval = None
 
 
+UTC_OFFSET_TIMEDELTA = datetime.datetime.now() - datetime.datetime.utcnow()
 
 def main():
 
@@ -127,6 +133,25 @@ def main():
 	LOG.info("CW -> I'm CW-AGENT!")
 	LOG.info("\n")
 	LOG.info("###########################################################################################\n")
+
+	global amqp_compute_ip
+	amqp_compute_ip = cfg.CONF.cloudwave.amqp_compute_ip
+	global exchange
+	exchange = cfg.CONF.cloudwave.cw_exchange #"CloudWave"
+	global timeout_recon
+	timeout_recon = float(cfg.CONF.cloudwave.timeout_recon)
+	global heartbeat
+	heartbeat = int(cfg.CONF.cloudwave.heartbeat)
+	global rabbitmq_user
+	rabbitmq_user = cfg.CONF.cloudwave.rabbitmq_user
+	global rabbitmq_password
+	rabbitmq_password = cfg.CONF.cloudwave.rabbitmq_password
+	global monitoring_interval
+	monitoring_interval = float(cfg.CONF.cloudwave.monitoring_interval)
+
+
+
+
 
         #PIPELINE INIT
 	LOG.info("###########################################################################################")
@@ -148,6 +173,19 @@ def main():
         LOG.info('\tRabbitMQ Heartbeat time interval: %s seconds', float(heartbeat))
         LOG.info('\tInstances Monitoring time interval: %s seconds', monitoring_interval)
         LOG.info('\tReconnection to RabbitMQ broker time intenterval: %s seconds', timeout_recon)
+	LOG.info('\tCeilometer pipeline: %s', meter_pipe)
+
+	
+	"""
+        print "CW -> CW-AGENT PARAMETERS:"
+        print '\tRabbitMQ broker: %s', amqp_compute_ip
+        print '\tRabbitMQ CloudWave Topic Exchange: %s', exchange
+        print '\tRabbitMQ user: %s', rabbitmq_user
+        print '\tRabbitMQ password: %s', rabbitmq_password
+        print '\tRabbitMQ Heartbeat time interval: %s seconds', float(heartbeat)
+        print '\tInstances Monitoring time interval: %s seconds', monitoring_interval
+        print '\tReconnection to RabbitMQ broker time intenterval: %s seconds', timeout_recon
+	"""
 
 	global connection	
 	connection = ioloop_connect()
@@ -215,7 +253,10 @@ def on_channel_open(new_channel):
 		
        	for instance in instances:
 
-               	instance_uuid = getattr(instance, 'id', None) #util.instance_name(instance)
+		LOG.info('CW -> INSTANCE OBJ:  %s', instance)
+
+               	instance_uuid = getattr(instance, 'id', None) #util.instance_name(instance)i
+
                	LOG.info('CW -> INSTANCE:  %s', instance_uuid)
 
        		queue = "CloudWave."+instance_uuid
@@ -347,13 +388,25 @@ def handle_delivery(channel, method, header, body):
 		METER_unit = j['unit']
 		METER_type = j['type']
 		METER_timestamp = j['timestamp']
-		#METER_timestamp_format = datetime.datetime.fromtimestamp(METER_timestamp/1000.0).strftime('%Y-%m-%dT%H:%M:%SZ')
-		METER_timestamp_utc = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(METER_timestamp/1000.0))
-
+		#METER_timestamp_format = datetime.datetime.fromtimestamp(METER_timestamp/1000.0).strftime('%Y-%m-%dT%H:%M:%SZ') # Y2 - NO UTC format
+		#METER_timestamp_utc = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(METER_timestamp/1000.0)) # Y2 - UTC format
+		
+		#Y3 UTC TIMESTAMP CONVERSION
+		METER_timestamp_utc = (datetime.datetime.fromtimestamp(METER_timestamp/1000.0) - UTC_OFFSET_TIMEDELTA).strftime('%Y-%m-%dT%H:%M:%S.%f')
+		LOG.info("CW -> TIMESTAMP: %s -> %s", str(METER_timestamp), str(METER_timestamp_utc))
+	
 		instance_uuid = j['probe_inst']
 
 		if j['probe_inst']:
-			inst=getInstance(j['probe_inst'])
+			LOG.info("CW -> Getting instance information...")
+		
+			#Y2	
+			#inst=getInstance(j['probe_inst'])
+			#LOG.info("GET FROM getInstance: %s", inst);
+
+			#Y3
+			inst = filter(lambda x: x.id == j['probe_inst'], instances)[0]
+			LOG.info("CW ----> INSTANCE got from list: %s", inst);
 
 			METER_resource_metadata = util._get_metadata_from_object(inst)
         		METER_resource_metadata.update(METER_metadata)
@@ -361,7 +414,6 @@ def handle_delivery(channel, method, header, body):
 
         		#LOG.info("CW -> INSTANCE SELECTED: %s with UUID %s", inst, instance_uuid)
         		LOG.info('CW -> METER FROM %s : %s %s %s', instance_uuid, METER_name, METER_volume, METER_unit)	
-        		#LOG.info("\t\ttimestamp: intel: %s - utc: %s - openstack: %s", METER_timestamp, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(METER_timestamp/1000.0)), METER_timestamp_format):
 
 			# CEILOMETER SAMPLE CREATION
         		new_sample = sample.Sample(
@@ -373,15 +425,11 @@ def handle_delivery(channel, method, header, body):
 				project_id=inst.tenant_id,
 				resource_id=inst.id,
 				timestamp=METER_timestamp_utc,
-				#timestamp=datetime.datetime.fromtimestamp(METER_timestamp/1000.0).strftime('%Y-%m-%dT%H:%M:%SZ'),
-				#timestamp=METER_timestamp,
 				resource_metadata=METER_resource_metadata,
 			)
 
 
-        		#PUBLISH THE NEW SAMPLE INTO THE METERING PIPILINE
-        		meter_pipe.publish_samples(metering_context,[new_sample])
-
+			meter_pipe.publish_data(metering_context,[new_sample])
        			LOG.info("CW -> SAMPLE PUBLISHED!\n")
 		else:
 			LOG.info("CW -> SAMPLE NO PUBLISHED: Nova client ERROR communication!\n")
