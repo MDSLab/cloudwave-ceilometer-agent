@@ -1,7 +1,3 @@
-# Copyright 2014 University of Messina (UniMe)
-#
-# Author: Nicola Peditto <npeditto@unime.it>
-#
 # Licensed under the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance with the License. You may obtain
 # a copy of the License at
@@ -14,11 +10,10 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-# 
 #
-# Author: Nicola Peditto <npeditto@unime.it>
+# Author: Nicola Peditto <npeditto@unime.it> - University of Messina (UniMe) - 2014
 #
-#
+
 import pytz
 import pika
 #import inspect
