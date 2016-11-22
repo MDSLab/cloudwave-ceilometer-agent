@@ -13,7 +13,7 @@ CloudWave Ceilometer Agent (cw-agent) has been tested to work on:
 
 
 ##Installation guide
-0. Requirements:
+1. Requirements:
   * Disable Epel repositories and use centos-openstack-liberty
   * Install RabbitMQ server:
     * yum install rabbitmq-server
@@ -22,9 +22,7 @@ CloudWave Ceilometer Agent (cw-agent) has been tested to work on:
     * [OPTIONAL] rabbitmq-plugins enable rabbitmq_management
     * [OPTIONAL] systemctl restart rabbitmq-server.service
 
-1. log in Openstack Compute Node (the machine where Openstack Nova Compute and Ceilometer Agent are installed)
-2. log in as root: 
-  * sudo su
+2. Log in (as root) Openstack Compute Node (the machine where Openstack Nova Compute and Ceilometer Agent are installed)
 3. Download the RPM package
   * wget https://github.com/MDSLab/cloudwave-ceilometer-agent/raw/master/packages/cw-agent-2.0.0-35.x86_64.rpm
 4. Install the package:
