@@ -11,7 +11,7 @@
 # under the License.
 
 #
-# Author: Nicola Peditto <npeditto@unime.it> - University of Messina (UniMe) - 2014
+# Author: Nicola Peditto <npeditto@unime.it> - University of Messina (UniMe) - 2015 2016
 #
 
 import pytz
