@@ -12,5 +12,10 @@ CloudWave Ceilometer Agent (cw-agent) has been tested to work on:
 
 
 ##Installation guide
-
-
+1. log in Openstack Compute node (the machine where Openstack Nova Compute and Ceilometer Agent are installed)
+2. log in as root: 
+⋅⋅* sudo su
+3. Download the RPM package
+⋅⋅* wget https://github.com/MDSLab/cloudwave-ceilometer-agent/raw/master/packages/cw-agent-2.0.0-35.x86_64.rpm
+4. Install the package:
+⋅⋅* rpm -Uvh cw-agent-2.0.0-35.x86_64.rpm
